@@ -1,4 +1,6 @@
 #!/usr/bin/python3
+# Streams stdin to the usha256_serial_slave sketch running on an Arduino,
+# reads the computed hash, and prints the hash to stdout.
 
 import sys
 import serial
