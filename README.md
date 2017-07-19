@@ -5,5 +5,10 @@ This implementation is a heavily modified version of Brad Conte's public domain 
 
 Pull requests that reduce the compiled size are always welcome.
 
+# Caveat Lector
+This library is being developed for another project currently in progress. As such, usha256's API is still in flux.
+
+usha256 currently has an input size limitation of 512MB.
+
 # Usage
 Please see the `examples` folder for usage examples.
