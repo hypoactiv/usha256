@@ -47,29 +47,27 @@ void sha256_memcpy_swap_endianness(uint8_t *dst, uint8_t *src, uint8_t len) {
   }
 }
 
-void sha256_transform(Sha256Context *ctx, uint8_t data[]) {
+void sha256_transform(Sha256Context *ctx) {
   uint8_t i;
   uint32_t t1, t2;
   union {
     uint32_t state[8];
     uint8_t state_bytes[32];
   };
-  union {
-    uint32_t m[64];
-    uint8_t m_bytes[256];
-  };
-  sha256_memcpy_swap_endianness(m_bytes, data, 64);
-  //for (i = 0; i < 64; i++) {
-   // m_bytes[i] = data[i^0x03]; // swap endianness and copy
-  //}
-  for (i = 16; i < 64; ++i) {
-    m[i] =
-        sha256_sig1(m[i - 2]) + m[i - 7] + sha256_sig0(m[i - 15]) + m[i - 16];
-  }
   memcpy(state, ctx->state, 32);
   for (i = 0; i < 64; ++i) {
+    uint32_t m;
+    if (i < 16) {
+      sha256_memcpy_swap_endianness((uint8_t *)&m, ctx->data+4*i, 4);
+    } else {
+      m = sha256_sig1(ctx->data32[(i - 2)%16])
+          + ctx->data32[(i - 7)%16]
+          + sha256_sig0(ctx->data32[(i - 15)%16])
+          + ctx->data32[(i - 16)%16];
+    }
+    ctx->data32[i%16] = m;
     t1 = state[7] + sha256_ep1(state[4]) + CH(state[4], state[5], state[6]) +
-         pgm_read_dword(k + i) + m[i];
+         pgm_read_dword(k + i) + m;
     t2 = sha256_ep0(state[0]) + MAJ(state[0], state[1], state[2]);
     // shift g to h, f to g, etc.
     for (uint8_t j = 31; j >= 1; j--) {
@@ -90,12 +88,12 @@ void sha256_init(Sha256Context *ctx) {
   }
 }
 
-void sha256_update(Sha256Context *ctx, uint8_t *data, uint8_t len) {
+void sha256_update(Sha256Context *ctx, uint8_t *data, uint16_t len) {
   for (; len > 0; len--) {
     ctx->data[ctx->datalen] = *(data++);
     ctx->datalen++;
     if (ctx->datalen == 64) {
-      sha256_transform(ctx, ctx->data);
+      sha256_transform(ctx);
       ctx->bitlen += 512;
       ctx->datalen = 0;
     }
@@ -119,7 +117,7 @@ void sha256_final(Sha256Context *ctx, uint8_t hash[]) {
     while (i < 64) {
       ctx->data[i++] = 0x00;
     }
-    sha256_transform(ctx, ctx->data);
+    sha256_transform(ctx);
     memset(ctx->data, 0, 60);
   }
   ctx->bitlen += ctx->datalen * 8;
@@ -127,7 +125,7 @@ void sha256_final(Sha256Context *ctx, uint8_t hash[]) {
   //for (i = 0; i < 4; i++) {
    // ctx->data[60 + i] = ctx->bitlen_bytes[i^0x03]; // swap endian-ness and copy
   //}
-  sha256_transform(ctx, ctx->data);
+  sha256_transform(ctx);
   sha256_memcpy_swap_endianness(hash, ctx->state_bytes, 32);
   //for (i = 0; i < 32; i++) {
    // hash[i] = ctx->state_bytes[i^0x03]; // swap endian-ness and copy
