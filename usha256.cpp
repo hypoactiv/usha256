@@ -58,14 +58,14 @@ void sha256_transform(Sha256Context *ctx) {
   for (i = 0; i < 64; ++i) {
     uint32_t m;
     if (i < 16) {
-      sha256_memcpy_swap_endianness((uint8_t *)&m, ctx->data+4*i, 4);
+      m = ctx->data32[i];
     } else {
       m = sha256_sig1(ctx->data32[(i - 2)%16])
           + ctx->data32[(i - 7)%16]
           + sha256_sig0(ctx->data32[(i - 15)%16])
           + ctx->data32[(i - 16)%16];
+      ctx->data32[i%16] = m;
     }
-    ctx->data32[i%16] = m;
     t1 = state[7] + sha256_ep1(state[4]) + CH(state[4], state[5], state[6]) +
          pgm_read_dword(k + i) + m;
     t2 = sha256_ep0(state[0]) + MAJ(state[0], state[1], state[2]);
@@ -90,7 +90,8 @@ void sha256_init(Sha256Context *ctx) {
 
 void sha256_update(Sha256Context *ctx, uint8_t *data, uint16_t len) {
   for (; len > 0; len--) {
-    ctx->data[ctx->datalen] = *(data++);
+    // swap endianness of incoming data
+    ctx->data[ctx->datalen^0x03] = *(data++);
     ctx->datalen++;
     if (ctx->datalen == 64) {
       sha256_transform(ctx);
@@ -106,28 +107,22 @@ void sha256_final(Sha256Context *ctx, uint8_t hash[]) {
   i = ctx->datalen;
   if (ctx->datalen < 56) {
     // enough room to append bitlength after padding
-    ctx->data[i++] = 0x80;
+    ctx->data[(i++)^0x03] = 0x80;
     while (i < 60) {
-      ctx->data[i++] = 0x00;
+      ctx->data[(i++)^0x03] = 0x00;
     }
   } else {
     // not enough room to append bitlength, transform this block and start
     // a new one
-    ctx->data[i++] = 0x80;
+    ctx->data[(i++)^0x03] = 0x80;
     while (i < 64) {
-      ctx->data[i++] = 0x00;
+      ctx->data[(i++)^0x03] = 0x00;
     }
     sha256_transform(ctx);
     memset(ctx->data, 0, 60);
   }
   ctx->bitlen += ctx->datalen * 8;
-  sha256_memcpy_swap_endianness(ctx->data+60, ctx->bitlen_bytes, 4);
-  //for (i = 0; i < 4; i++) {
-   // ctx->data[60 + i] = ctx->bitlen_bytes[i^0x03]; // swap endian-ness and copy
-  //}
+  ctx->data32[15] = ctx->bitlen;
   sha256_transform(ctx);
   sha256_memcpy_swap_endianness(hash, ctx->state_bytes, 32);
-  //for (i = 0; i < 32; i++) {
-   // hash[i] = ctx->state_bytes[i^0x03]; // swap endian-ness and copy
-  //}
 }
