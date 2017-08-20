@@ -70,7 +70,7 @@ void sha256_transform(Sha256Context *ctx) {
          pgm_read_dword(k + i) + m;
     t2 = sha256_ep0(state[0]) + MAJ(state[0], state[1], state[2]);
     // shift g to h, f to g, etc.
-    for (uint8_t j = 31; j >= 1; j--) {
+    for (uint8_t j = 31; j >= 4; j--) {
       state_bytes[j] = state_bytes[j - 4];
     }
     state[4] += t1;      // e
